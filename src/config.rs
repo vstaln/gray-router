@@ -13,7 +13,7 @@
 //!   "mode": "auto",
 //!   "default_tier": "smart",
 //!   "classifier": {"kind": "heuristic", "tier": "fast"},
-//!   "announce": false,
+//!   "announce": true,
 //!   "rules": { "smart_min_chars": 1500, "smart_keywords": [...] }
 //! }
 //! ```
@@ -181,6 +181,10 @@ pub struct Classifier {
     pub tier: String,
 }
 
+fn d_true() -> bool {
+    true
+}
+
 fn d_classifier_kind() -> String {
     "heuristic".to_string()
 }
@@ -208,8 +212,8 @@ pub struct RouterConfig {
     #[serde(default)]
     pub classifier: Classifier,
     /// Emit a `host/say` line when auto picks a different tier than last
-    /// time (visibility into where turns go). Off by default.
-    #[serde(default)]
+    /// time (visibility into where turns go). On by default.
+    #[serde(default = "d_true")]
     pub announce: bool,
     #[serde(default)]
     pub rules: Rules,
@@ -359,7 +363,7 @@ pub fn template() -> Value {
         },
         "default_tier": "smart",
         "classifier": {"kind": "heuristic", "tier": "fast"},
-        "announce": false,
+        "announce": true,
         "rules": {
             "fast_max_chars": 200,
             "smart_min_chars": 1500,

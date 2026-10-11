@@ -48,7 +48,7 @@ request, mid-session, without rebuilding the agent.
   },
   "default_tier": "smart",
   "classifier": {"kind": "heuristic", "tier": "fast"},
-  "announce": false,
+  "announce": true,
   "rules": {
     "fast_max_chars": 200, "smart_min_chars": 1500, "smart_min_tools": 4,
     "trivial_score_max": 30, "complex_score_min": 66,
