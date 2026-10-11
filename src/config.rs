@@ -11,7 +11,7 @@
 //!               "api_key": "sk-local"}
 //!   },
 //!   "mode": "auto",
-//!   "default_tier": "smart",
+//!   "default_tier": "fast",
 //!   "classifier": {"kind": "heuristic", "tier": "fast"},
 //!   "announce": true,
 //!   "rules": { "smart_min_chars": 1500, "smart_keywords": [...] }
@@ -206,7 +206,7 @@ pub struct RouterConfig {
     #[serde(default)]
     pub tiers: BTreeMap<String, Tier>,
     /// Tier the router falls back to when routing is off or the picked
-    /// tier isn't configured. Defaults to the strongest configured tier.
+    /// tier isn't configured. Defaults to the cheapest configured tier.
     #[serde(default)]
     pub default_tier: Option<String>,
     #[serde(default)]
@@ -254,14 +254,14 @@ impl RouterConfig {
     }
 
     /// The tier to use when a pick lands on a name that isn't configured
-    /// (or routing is off): `default_tier` if configured, else strongest.
+    /// (or routing is off): `default_tier` if configured, else cheapest.
     pub fn fallback_tier(&self) -> Option<String> {
         if let Some(d) = &self.default_tier {
             if self.tiers.contains_key(d) {
                 return Some(d.clone());
             }
         }
-        self.tier_names().last().cloned()
+        self.tier_names().first().cloned()
     }
 }
 
@@ -361,7 +361,7 @@ pub fn template() -> Value {
                 "api_key_env": "OPENAI_API_KEY"
             }
         },
-        "default_tier": "smart",
+        "default_tier": "fast",
         "classifier": {"kind": "heuristic", "tier": "fast"},
         "announce": true,
         "rules": {

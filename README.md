@@ -46,7 +46,7 @@ request, mid-session, without rebuilding the agent.
     "cheap": {"base_url": "http://127.0.0.1:4000/v1", "model": "local-small",
               "api_key": "sk-local"}
   },
-  "default_tier": "smart",
+  "default_tier": "fast",
   "classifier": {"kind": "heuristic", "tier": "fast"},
   "announce": true,
   "rules": {

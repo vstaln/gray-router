@@ -16,7 +16,9 @@
 //! admission, `Content-Length` POST only, `: keepalive` SSE comments past
 //! the header grace while upstream thinks.
 
-use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
+use std::collections::{HashMap, VecDeque};
+use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -370,7 +372,7 @@ fn run_turn(intents: &Intents, bearer: &str, raw: &[u8], tx: &mpsc::Sender<Up>) 
         }
     };
     let mut state = RouterState::load();
-    let (tier_name, reason) = resolve_tier(&body, &cfg, &state, &intent.row);
+    let (tier_name, reason, fresh) = resolve_tier(&body, &cfg, &state, &intent.row);
     let Some(tier_name) = tier_name else {
         send(Up::Err(format!(
             "router: no usable tier — check {} tiers",
@@ -395,7 +397,7 @@ fn run_turn(intents: &Intents, bearer: &str, raw: &[u8], tx: &mpsc::Sender<Up>) 
         return;
     };
     state.record(&tier_name, &tier.model, &reason);
-    if cfg.announce {
+    if cfg.announce && fresh {
         say(&format!("router → {tier_name} ({}) — {reason}", tier.model));
     }
 
@@ -413,45 +415,93 @@ fn run_turn(intents: &Intents, bearer: &str, raw: &[u8], tx: &mpsc::Sender<Up>) 
     proxy(&tier, &key, &bytes, &send);
 }
 
-/// Which upstream tier this request takes.
+/// Per-turn tier memo: requests in one user turn share (row, last user
+/// text), so tool rounds reuse the classified tier instead of
+/// re-classifying (and re-billing the llm classifier) each round.
+const MEMO_MAX: usize = 64;
+static TIER_MEMO: Mutex<VecDeque<((String, u64), String)>> = Mutex::new(VecDeque::new());
+
+fn memo_key(row: &str, text: &str) -> (String, u64) {
+    let mut h = DefaultHasher::new();
+    text.hash(&mut h);
+    (row.to_string(), h.finish())
+}
+
+fn memo_get(row: &str, text: &str) -> Option<String> {
+    let m = TIER_MEMO.lock().ok()?;
+    let key = memo_key(row, text);
+    m.iter()
+        .find(|(k, _)| *k == key)
+        .map(|(_, t)| t.clone())
+}
+
+fn memo_put(row: &str, text: &str, tier: &str) {
+    let Ok(mut m) = TIER_MEMO.lock() else {
+        return;
+    };
+    let key = memo_key(row, text);
+    if m.iter().any(|(k, _)| *k == key) {
+        return;
+    }
+    if m.len() >= MEMO_MAX {
+        m.pop_front();
+    }
+    m.push_back((key, tier.to_string()));
+}
+
+/// Which upstream tier this request takes. The bool marks a fresh
+/// resolution — memo hits return false so announce stays quiet.
 pub fn resolve_tier(
     body: &Value,
     cfg: &RouterConfig,
     state: &RouterState,
     row: &str,
-) -> (Option<String>, String) {
+) -> (Option<String>, String, bool) {
     let row_is_tier = cfg.tiers.contains_key(row);
     match state.mode.as_str() {
         // Off: no classification; a tier row still acts as an alias,
         // `auto` falls back to the default.
         "off" => {
             if row_is_tier {
-                (Some(row.to_string()), "off; tier row".into())
+                (Some(row.to_string()), "off; tier row".into(), true)
             } else {
-                (cfg.fallback_tier(), "off; default tier".into())
+                (cfg.fallback_tier(), "off; default tier".into(), true)
             }
         }
         // A tier name pins every request regardless of the row.
         mode if cfg.tiers.contains_key(mode) => {
-            (Some(mode.to_string()), format!("pinned /route {mode}"))
+            (Some(mode.to_string()), format!("pinned /route {mode}"), true)
         }
         // Auto: an explicitly picked tier row wins; `auto` classifies.
         _ => {
             if row_is_tier {
-                (Some(row.to_string()), "tier row".into())
+                (Some(row.to_string()), "tier row".into(), true)
             } else if row == AUTO_ROW {
-                if cfg.classifier.kind == "llm" {
-                    match llm_classify(body, cfg) {
-                        Some(t) => return (Some(t), "llm classify".into()),
-                        None => log_line("llm classify failed; heuristic fallback"),
-                    }
+                let text = crate::classify::last_user_text(body);
+                if let Some(t) = memo_get(row, &text) {
+                    return (Some(t), "auto; pinned this turn".into(), false);
                 }
-                match crate::classify::classify(body, cfg) {
+                let out = if cfg.classifier.kind == "llm" {
+                    match llm_classify(body, cfg) {
+                        Some(t) => Some((t, "llm classify".to_string())),
+                        None => {
+                            log_line("llm classify failed; heuristic fallback");
+                            crate::classify::classify(body, cfg)
+                        }
+                    }
+                } else {
+                    crate::classify::classify(body, cfg)
+                };
+                let (t, why) = match out {
                     Some((t, why)) => (Some(t), why),
                     None => (cfg.fallback_tier(), "auto; default tier".into()),
+                };
+                if let Some(t) = &t {
+                    memo_put(row, &text, t);
                 }
+                (t, why, true)
             } else {
-                (cfg.fallback_tier(), "auto; default tier".into())
+                (cfg.fallback_tier(), "auto; default tier".into(), true)
             }
         }
     }
