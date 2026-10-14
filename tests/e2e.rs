@@ -94,9 +94,16 @@ impl Sidecar {
         let req = json!({"id": id, "method": method, "params": params});
         writeln!(self.stdin, "{req}").unwrap();
         self.stdin.flush().unwrap();
-        let mut line = String::new();
-        self.stdout.read_line(&mut line).unwrap();
-        serde_json::from_str(&line).unwrap()
+        // The sidecar interleaves notifications (host/say, …) with replies —
+        // skip lines until the reply carrying this call's numeric id arrives.
+        loop {
+            let mut line = String::new();
+            self.stdout.read_line(&mut line).unwrap();
+            let v: Value = serde_json::from_str(&line).unwrap();
+            if v.get("id").and_then(Value::as_u64) == Some(id) {
+                return v;
+            }
+        }
     }
 }
 

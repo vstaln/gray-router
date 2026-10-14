@@ -14,6 +14,7 @@ pub fn catalog(cfg: Option<&RouterConfig>) -> ProviderModelCatalog {
         reasoning_efforts: Vec::new(),
         variants: Vec::new(),
         slots: Vec::new(),
+        price_cliff_tokens: None,
     }];
     if let Some(cfg) = cfg {
         for name in cfg.tier_names() {
@@ -25,6 +26,7 @@ pub fn catalog(cfg: Option<&RouterConfig>) -> ProviderModelCatalog {
                 reasoning_efforts: Vec::new(),
                 variants: Vec::new(),
                 slots: Vec::new(),
+                price_cliff_tokens: None,
             });
         }
     }
