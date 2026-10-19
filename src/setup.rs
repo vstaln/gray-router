@@ -21,7 +21,11 @@ fn run(force: bool) -> anyhow::Result<String> {
         std::fs::create_dir_all(dir)?;
         let mut tmp = tempfile::NamedTempFile::new_in(dir)?;
         use std::io::Write;
-        writeln!(tmp, "{}", serde_json::to_string_pretty(&config::template())?)?;
+        writeln!(
+            tmp,
+            "{}",
+            serde_json::to_string_pretty(&config::template())?
+        )?;
         tmp.persist(&path)?;
     }
     let mut out = String::new();

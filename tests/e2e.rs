@@ -212,10 +212,7 @@ fn auto_routes_trivial_to_fast_and_complex_to_smart() {
     assert_eq!(got["model"], "mock-smart");
 
     // /route pin: fast pins every subsequent turn.
-    let r = sc.call(
-        "command/run",
-        json!({"name": "/route", "argv": ["fast"]}),
-    );
+    let r = sc.call("command/run", json!({"name": "/route", "argv": ["fast"]}));
     assert!(r["result"]["text"].as_str().unwrap().contains("fast"));
     let _ = turn(&mut sc, &complex);
     assert!(fast_rx.recv_timeout(Duration::from_secs(10)).is_ok());

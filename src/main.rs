@@ -132,7 +132,10 @@ fn handle(relays: &Relays, request: &Request) -> Result<Value, ProviderRpcError>
             .map_err(|e| ProviderRpcError::Protocol(e.to_string())),
         "plugin/tools" => Ok(json!({"tools": []})),
         "provider/auth/start" => {
-            ensure_provider(&param_str(&params, "provider"), &param_str(&params, "auth_method"))?;
+            ensure_provider(
+                &param_str(&params, "provider"),
+                &param_str(&params, "auth_method"),
+            )?;
             // External login: router.json IS the credential — connect just
             // checks it exists and names a fix when it doesn't.
             match config::RouterConfig::load() {
@@ -157,7 +160,10 @@ fn handle(relays: &Relays, request: &Request) -> Result<Value, ProviderRpcError>
             Ok(json!({"status": "unsupported"}))
         }
         "provider/models" => {
-            ensure_provider(&param_str(&params, "provider"), &param_str(&params, "auth_method"))?;
+            ensure_provider(
+                &param_str(&params, "provider"),
+                &param_str(&params, "auth_method"),
+            )?;
             let cfg = config::RouterConfig::load().ok();
             serde_json::to_value(catalog::catalog(cfg.as_ref()))
                 .map_err(|e| ProviderRpcError::Protocol(e.to_string()))
@@ -170,7 +176,11 @@ fn handle(relays: &Relays, request: &Request) -> Result<Value, ProviderRpcError>
             let argv: Vec<String> = params
                 .get("argv")
                 .and_then(Value::as_array)
-                .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|v| v.as_str().map(str::to_string))
+                        .collect()
+                })
                 .unwrap_or_default();
             if name == manifest::ROUTE_COMMAND {
                 manifest::run_command(&argv)
@@ -187,18 +197,27 @@ fn handle(relays: &Relays, request: &Request) -> Result<Value, ProviderRpcError>
 /// its URL + per-turn bearer. The admitted POST classifies, rewrites and
 /// forwards — this method only ever names where to POST.
 fn chat_turn(relays: &Relays, params: &Value) -> Result<Value, ProviderRpcError> {
-    ensure_provider(&param_str(params, "provider"), &param_str(params, "auth_method"))?;
+    ensure_provider(
+        &param_str(params, "provider"),
+        &param_str(params, "auth_method"),
+    )?;
     // Fail before opening anything when there is nothing to route to.
     let cfg = config::RouterConfig::load()
         .map_err(|e| ProviderRpcError::Unavailable(format!("{e:#}")))?;
     if cfg.tiers.is_empty() {
         return Err(ProviderRpcError::Unavailable(format!(
             "router: no tiers configured in {}",
-            config::config_path().map(|p| p.display().to_string()).unwrap_or_default()
+            config::config_path()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default()
         )));
     }
     let row = param_str(params, "model");
-    let row = if row.is_empty() { config::AUTO_ROW.to_string() } else { row };
+    let row = if row.is_empty() {
+        config::AUTO_ROW.to_string()
+    } else {
+        row
+    };
     let bearer = format!("router-{}", hex_id());
     relays
         .lock()
@@ -206,9 +225,8 @@ fn chat_turn(relays: &Relays, params: &Value) -> Result<Value, ProviderRpcError>
             r.insert(bearer.clone(), relay::RelayIntent { row });
         })
         .ok();
-    let (port, _handle) =
-        relay::start_turn_server(relays.clone(), bearer.clone())
-            .map_err(ProviderRpcError::Unavailable)?;
+    let (port, _handle) = relay::start_turn_server(relays.clone(), bearer.clone())
+        .map_err(ProviderRpcError::Unavailable)?;
     std::mem::forget(_handle);
     Ok(json!({
         "relay_url": format!("http://127.0.0.1:{port}/relay/{bearer}/responses"),

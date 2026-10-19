@@ -42,7 +42,7 @@ pub const STATE_FILE: &str = "router.state.json";
 pub fn home() -> Result<PathBuf> {
     std::env::var_os("GRAY_HOME")
         .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|p| PathBuf::from(p).join(".gray")))
+        .or_else(|| std::env::home_dir().map(|p| p.join(".gray")))
         .context("cannot resolve Gray home")
 }
 
@@ -136,10 +136,27 @@ fn d_complex_min() -> u32 {
 }
 fn d_smart_keywords() -> Vec<String> {
     [
-        "refactor", "architect", "architecture", "optimize", "optimization",
-        "debug", "migrate", "migration", "implement", "design", "review",
-        "analyze", "analyse", "benchmark", "security", "concurrency",
-        "distributed", "compile", "compiler", "algorithm", "regression",
+        "refactor",
+        "architect",
+        "architecture",
+        "optimize",
+        "optimization",
+        "debug",
+        "migrate",
+        "migration",
+        "implement",
+        "design",
+        "review",
+        "analyze",
+        "analyse",
+        "benchmark",
+        "security",
+        "concurrency",
+        "distributed",
+        "compile",
+        "compiler",
+        "algorithm",
+        "regression",
     ]
     .iter()
     .map(|s| s.to_string())
@@ -147,8 +164,21 @@ fn d_smart_keywords() -> Vec<String> {
 }
 fn d_trivial_keywords() -> Vec<String> {
     [
-        "hi", "hello", "hey", "thanks", "thank you", "ok", "okay", "yes",
-        "no", "yep", "nope", "sure", "lgtm", "cool", "nice",
+        "hi",
+        "hello",
+        "hey",
+        "thanks",
+        "thank you",
+        "ok",
+        "okay",
+        "yes",
+        "no",
+        "yep",
+        "nope",
+        "sure",
+        "lgtm",
+        "cool",
+        "nice",
     ]
     .iter()
     .map(|s| s.to_string())
