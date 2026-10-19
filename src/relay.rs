@@ -56,8 +56,7 @@ pub fn start_turn_server(
     intents: Intents,
     bearer: String,
 ) -> Result<(u16, std::thread::JoinHandle<()>), String> {
-    let listener =
-        TcpListener::bind("127.0.0.1:0").map_err(|e| format!("relay bind: {e}"))?;
+    let listener = TcpListener::bind("127.0.0.1:0").map_err(|e| format!("relay bind: {e}"))?;
     let port = listener
         .local_addr()
         .map_err(|e| format!("relay addr: {e}"))?
@@ -67,12 +66,7 @@ pub fn start_turn_server(
     Ok((port, handle))
 }
 
-fn serve(
-    listener: TcpListener,
-    intents: Intents,
-    bearer: String,
-    used: Arc<AtomicBool>,
-) {
+fn serve(listener: TcpListener, intents: Intents, bearer: String, used: Arc<AtomicBool>) {
     for stream in listener.incoming() {
         let Ok(mut s) = stream else { continue };
         handle_conn(&mut s, &intents, &bearer, &used);
@@ -106,11 +100,7 @@ fn client_gone(s: &std::net::TcpStream) -> bool {
     gone
 }
 
-fn wait_up(
-    rx: &mpsc::Receiver<Up>,
-    s: &std::net::TcpStream,
-    span: Duration,
-) -> Wait {
+fn wait_up(rx: &mpsc::Receiver<Up>, s: &std::net::TcpStream, span: Duration) -> Wait {
     let end = Instant::now() + span;
     loop {
         let step = end.saturating_duration_since(Instant::now()).min(PEER_POLL);
@@ -223,7 +213,15 @@ fn handle_conn(
 
     let mut headers_sent = false;
     loop {
-        match wait_up(&rx, s, if headers_sent { KEEPALIVE } else { HEADER_GRACE }) {
+        match wait_up(
+            &rx,
+            s,
+            if headers_sent {
+                KEEPALIVE
+            } else {
+                HEADER_GRACE
+            },
+        ) {
             Wait::Gone | Wait::Died => return,
             Wait::Msg(Up::Head(status)) => {
                 if !headers_sent {
@@ -245,11 +243,9 @@ fn handle_conn(
                             Some(err_body) => {
                                 write_resp(s, status, &err_body);
                             }
-                            None => write_resp(
-                                s,
-                                status,
-                                br#"{"error":{"message":"upstream error"}}"#,
-                            ),
+                            None => {
+                                write_resp(s, status, br#"{"error":{"message":"upstream error"}}"#)
+                            }
                         }
                         return;
                     }
@@ -348,11 +344,7 @@ fn run_turn(intents: &Intents, bearer: &str, raw: &[u8], tx: &mpsc::Sender<Up>) 
     let send = |m: Up| {
         let _ = tx.send(m);
     };
-    let intent = intents
-        .lock()
-        .map(|mut m| m.remove(bearer))
-        .ok()
-        .flatten();
+    let intent = intents.lock().map(|mut m| m.remove(bearer)).ok().flatten();
     let Some(intent) = intent else {
         send(Up::Err("relay intent expired".into()));
         return;
@@ -385,7 +377,9 @@ fn run_turn(intents: &Intents, bearer: &str, raw: &[u8], tx: &mpsc::Sender<Up>) 
     let tier = match cfg.tiers.get(&tier_name) {
         Some(t) => t.clone(),
         None => {
-            send(Up::Err(format!("router: tier \"{tier_name}\" is not configured")));
+            send(Up::Err(format!(
+                "router: tier \"{tier_name}\" is not configured"
+            )));
             return;
         }
     };
@@ -430,9 +424,7 @@ fn memo_key(row: &str, text: &str) -> (String, u64) {
 fn memo_get(row: &str, text: &str) -> Option<String> {
     let m = TIER_MEMO.lock().ok()?;
     let key = memo_key(row, text);
-    m.iter()
-        .find(|(k, _)| *k == key)
-        .map(|(_, t)| t.clone())
+    m.iter().find(|(k, _)| *k == key).map(|(_, t)| t.clone())
 }
 
 fn memo_put(row: &str, text: &str, tier: &str) {
@@ -469,9 +461,11 @@ pub fn resolve_tier(
             }
         }
         // A tier name pins every request regardless of the row.
-        mode if cfg.tiers.contains_key(mode) => {
-            (Some(mode.to_string()), format!("pinned /route {mode}"), true)
-        }
+        mode if cfg.tiers.contains_key(mode) => (
+            Some(mode.to_string()),
+            format!("pinned /route {mode}"),
+            true,
+        ),
         // Auto: an explicitly picked tier row wins; `auto` classifies.
         _ => {
             if row_is_tier {

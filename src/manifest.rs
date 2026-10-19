@@ -1,8 +1,6 @@
 //! Protocol-1.2 manifest + the `/route` command surface.
 
-use gray_plugin::{
-    AuthMethodDecl, PROVIDER_CREDENTIALS, ProviderDecl, ProviderTransportDecl,
-};
+use gray_plugin::{AuthMethodDecl, ProviderDecl, ProviderTransportDecl, PROVIDER_CREDENTIALS};
 use serde_json::{json, Value};
 
 use crate::config::{self, RouterConfig, RouterState, AUTO_ROW};
@@ -124,12 +122,18 @@ fn set_mode(mode: &str, cfg: Option<&RouterConfig>) -> Option<Value> {
 fn status(cfg: Option<&RouterConfig>, state: &RouterState) -> String {
     let mut out = String::new();
     match cfg {
-        None => out.push_str("router: not configured — `/route setup` writes ~/.gray/router.json\n"),
+        None => {
+            out.push_str("router: not configured — `/route setup` writes ~/.gray/router.json\n")
+        }
         Some(c) => {
             out.push_str(&format!("router mode: {}\n", state.mode));
             for name in c.tier_names() {
                 let t = &c.tiers[&name];
-                let key = if t.api_key().is_some() { "key ✓" } else { "no key" };
+                let key = if t.api_key().is_some() {
+                    "key ✓"
+                } else {
+                    "no key"
+                };
                 out.push_str(&format!(
                     "  {name:6} {}  ({}, {})\n",
                     t.model,
@@ -162,7 +166,8 @@ fn classify_text(text: &str, cfg: Option<&RouterConfig>) -> String {
         return "router: not configured — `/route setup` first".to_string();
     };
     // Feed the text through the same body shape a real turn carries.
-    let body = json!({"input": [{"role": "user", "content": [{"type": "input_text", "text": text}]}]});
+    let body =
+        json!({"input": [{"role": "user", "content": [{"type": "input_text", "text": text}]}]});
     let s = crate::classify::signals(&body, &cfg.rules);
     let (score, why) = crate::classify::score(&s, &cfg.rules);
     let tier = crate::classify::pick(score, cfg).unwrap_or_else(|| "(none)".into());

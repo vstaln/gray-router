@@ -75,8 +75,8 @@ pub fn signals(body: &Value, rules: &Rules) -> Signals {
         .map(|t| t.len())
         .unwrap_or(0);
     let lower = trimmed.to_lowercase();
-    let trivial_message = !lower.is_empty()
-        && rules.trivial_keywords.iter().any(|w| lower == w.as_str());
+    let trivial_message =
+        !lower.is_empty() && rules.trivial_keywords.iter().any(|w| lower == w.as_str());
     let smart_hits = if trivial_message {
         0
     } else {
@@ -134,13 +134,29 @@ pub fn score(s: &Signals, rules: &Rules) -> (u32, Vec<String>) {
     // a dense request ("refactor the compiler") is small but not trivial.
     let technical = s.smart_hits > 0;
     if s.prompt_chars < 80 && !technical {
-        bump(&mut v, -20, format!("short prompt ({} chars)", s.prompt_chars));
+        bump(
+            &mut v,
+            -20,
+            format!("short prompt ({} chars)", s.prompt_chars),
+        );
     } else if s.prompt_chars < rules.fast_max_chars && !technical {
-        bump(&mut v, -12, format!("small prompt ({} chars)", s.prompt_chars));
+        bump(
+            &mut v,
+            -12,
+            format!("small prompt ({} chars)", s.prompt_chars),
+        );
     } else if s.prompt_chars > rules.smart_min_chars {
-        bump(&mut v, 30, format!("long prompt ({} chars)", s.prompt_chars));
+        bump(
+            &mut v,
+            30,
+            format!("long prompt ({} chars)", s.prompt_chars),
+        );
     } else if s.prompt_chars > rules.fast_max_chars * 2 {
-        bump(&mut v, 10, format!("medium prompt ({} chars)", s.prompt_chars));
+        bump(
+            &mut v,
+            10,
+            format!("medium prompt ({} chars)", s.prompt_chars),
+        );
     }
     if s.short_question && s.prompt_chars < 80 {
         bump(&mut v, -8, "short question".into());
@@ -154,7 +170,11 @@ pub fn score(s: &Signals, rules: &Rules) -> (u32, Vec<String>) {
         bump(&mut v, 8, format!("{} tools advertised", s.tool_count));
     }
     if s.history_items > 8 {
-        bump(&mut v, 8, format!("deep history ({} items)", s.history_items));
+        bump(
+            &mut v,
+            8,
+            format!("deep history ({} items)", s.history_items),
+        );
     }
     for _ in 0..s.smart_hits.min(3) {
         bump(&mut v, 12, "technical keyword".into());
