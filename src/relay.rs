@@ -225,8 +225,8 @@ fn handle_conn(
             Wait::Gone | Wait::Died => return,
             Wait::Msg(Up::Head(status)) => {
                 if !headers_sent {
-                    if (200..300).contains(&status) {
-                        if s.write_all(
+                    if (200..300).contains(&status)
+                        && s.write_all(
                             b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n",
                         )
                         .and_then(|_| s.flush())
@@ -234,7 +234,6 @@ fn handle_conn(
                         {
                             return;
                         }
-                    }
                     headers_sent = true;
                     if !(200..300).contains(&status) {
                         // Upstream rejected: wait for its error body and
@@ -307,11 +306,8 @@ fn handle_conn(
 fn drain_err(rx: &mpsc::Receiver<Up>) -> Option<Vec<u8>> {
     let mut out = Vec::new();
     let deadline = Instant::now() + Duration::from_secs(30);
-    loop {
-        match rx.recv_timeout(Duration::from_secs(5)) {
-            Ok(Up::Chunk(c)) => out.extend_from_slice(&c),
-            _ => break,
-        }
+    while let Ok(Up::Chunk(c)) = rx.recv_timeout(Duration::from_secs(5)) {
+        out.extend_from_slice(&c);
         if Instant::now() > deadline || out.len() > 1 << 20 {
             break;
         }

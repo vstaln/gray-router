@@ -60,7 +60,7 @@ fn trivial_prefers_cheap_when_configured() {
 
 #[test]
 fn smart_keywords_lift_score() {
-    let c = cfg(&["fast", "smart"]);
+    let _c = cfg(&["fast", "smart"]);
     let r = Rules::default();
     let s = classify::signals(
         &body("please refactor the compiler architecture and optimize the algorithm"),
